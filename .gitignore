@@ -1,0 +1,22 @@
+# Build output
+/cmake-build-debug/
+/xgboost_build/
+*.exe
+*.ilk
+*.pdb
+*.dll
+*.o
+*.obj
+*.lib
+*.a
+
+# Log files
+*.log
+
+# IDE files
+.idea/
+.vs/
+xgboost/
+# Other
+xgboost_tutorial
+
