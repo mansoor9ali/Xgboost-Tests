@@ -24,6 +24,70 @@
  * - Predictions on test set
  * - Single example prediction
  * - Confusion matrix and basic classification metrics
+ *
+ * ============================================================================
+ * WHY WE USE XGBoosterPredict() AND NOT XGBClassifier:
+ * ============================================================================
+ *
+ * ANSWER: There is NO XGBClassifier class in the XGBoost C/C++ API!
+ *
+ * The XGBoost C API is a LOW-LEVEL, PROCEDURAL interface that provides:
+ * - XGBoosterCreate()      -> Creates a booster (model)
+ * - XGBoosterSetParam()    -> Sets parameters (objective, eta, max_depth, etc.)
+ * - XGBoosterUpdateOneIter() -> Trains for one iteration
+ * - XGBoosterPredict()     -> Makes predictions (for BOTH regression AND classification)
+ *
+ * Python's XGBClassifier and XGBRegressor are HIGH-LEVEL wrappers built on top
+ * of the C API. They internally call the same C functions we use here.
+ *
+ * HOW CLASSIFICATION WORKS:
+ * -------------------------
+ * The task (classification vs regression) is determined by the OBJECTIVE parameter:
+ *
+ * For Classification:
+ *   XGBoosterSetParam(booster, "objective", "multi:softprob");  // Multi-class probabilities
+ *   XGBoosterSetParam(booster, "num_class", "3");               // Number of classes
+ *   XGBoosterPredict(...) -> Returns probabilities for each class
+ *
+ * For Regression:
+ *   XGBoosterSetParam(booster, "objective", "reg:squarederror");
+ *   XGBoosterPredict(...) -> Returns continuous values
+ *
+ * SAME FUNCTION, DIFFERENT BEHAVIOR based on objective!
+ *
+ * Common Classification Objectives:
+ * - "binary:logistic"  -> Binary classification (outputs probability)
+ * - "multi:softprob"   -> Multi-class (outputs probabilities for each class)
+ * - "multi:softmax"    -> Multi-class (outputs class label directly)
+ *
+ * OUTPUT FORMAT:
+ * --------------
+ * For multi:softprob with 3 classes and 30 test samples:
+ * - out_len = 90 (30 samples × 3 classes)
+ * - out_result[0..2]   = Probabilities for sample 0 (class 0, 1, 2)
+ * - out_result[3..5]   = Probabilities for sample 1 (class 0, 1, 2)
+ * - out_result[6..8]   = Probabilities for sample 2 (class 0, 1, 2)
+ * - ...and so on
+ *
+ * We then convert probabilities to class labels by finding argmax:
+ *   predicted_class = argmax(probabilities)
+ *
+ * COMPARISON WITH PYTHON:
+ * -----------------------
+ * Python:
+ *   clf = XGBClassifier(objective='multi:softprob', num_class=3)
+ *   clf.fit(X_train, y_train)
+ *   y_pred = clf.predict(X_test)  # Returns class labels automatically
+ *
+ * C++:
+ *   XGBoosterSetParam(booster, "objective", "multi:softprob");
+ *   XGBoosterSetParam(booster, "num_class", "3");
+ *   XGBoosterUpdateOneIter(booster, iter, h_train);
+ *   XGBoosterPredict(booster, h_test, 0, 0, 0, &len, &result);
+ *   // Must manually convert probabilities to class labels (argmax)
+ *
+ * Both approaches use the same underlying C API functions!
+ * ============================================================================
  */
 
 // Global log file stream
@@ -303,14 +367,45 @@ int main() {
 
         log("\nTraining completed.\n");
 
-        // Make predictions on test set
+        // ========================================================================
+        // MAKING PREDICTIONS FOR CLASSIFICATION
+        // ========================================================================
+        // XGBoosterPredict() is the UNIVERSAL prediction function for both
+        // classification and regression. Since we set objective="multi:softprob",
+        // it will return CLASS PROBABILITIES.
+        //
+        // Function signature:
+        //   XGBoosterPredict(booster, dmat, option_mask, ntree_limit, training,
+        //                    &out_len, &out_result)
+        //
+        // Parameters:
+        //   - booster: The trained model
+        //   - h_test: Test data matrix
+        //   - 0 (option_mask): Normal prediction (not margin/contribution/leaf)
+        //   - 0 (ntree_limit): Use all trees (not limiting to first N trees)
+        //   - 0 (training): Not for training (this is inference)
+        //   - &out_len: OUTPUT - length of result array
+        //   - &out_result: OUTPUT - pointer to float array with predictions
+        //
+        // For multi-class classification with 3 classes:
+        //   out_len = num_samples × num_classes = 30 × 3 = 90
+        //   out_result = [p0_c0, p0_c1, p0_c2, p1_c0, p1_c1, p1_c2, ...]
+        //     where p0_c0 = probability that sample 0 belongs to class 0
+        //           p0_c1 = probability that sample 0 belongs to class 1
+        //           p0_c2 = probability that sample 0 belongs to class 2
+        //
+        // This is equivalent to Python's:
+        //   clf.predict_proba(X_test)  # Returns probability matrix
+        // ========================================================================
         bst_ulong out_len;
         const float* out_result;
         safe_xgboost(XGBoosterPredict(booster, h_test, 0, 0, 0, &out_len, &out_result));
 
-        // Convert probabilities to class predictions
+        // Convert probabilities to class predictions (argmax)
+        // This is equivalent to Python's clf.predict(X_test)
         std::vector<int> y_pred;
         for (int i = 0; i < test_size; i++) {
+            // Find the class with highest probability
             int max_class = 0;
             float max_prob = out_result[i * IRIS_CLASSES];
             for (int j = 1; j < IRIS_CLASSES; j++) {
@@ -336,7 +431,15 @@ int main() {
             log(buffer);
         }
 
-        // Single example prediction: [4.5, 3.0, 1.5, 0.25]
+        // ========================================================================
+        // SINGLE EXAMPLE PREDICTION
+        // ========================================================================
+        // Demonstrating prediction on a single sample: [4.5, 3.0, 1.5, 0.25]
+        // This is equivalent to Python's:
+        //   X_example = np.array([4.5, 3.0, 1.5, 0.25]).reshape(1, 4)
+        //   y_example = clf.predict(X_example)
+        //   y_proba = clf.predict_proba(X_example)
+        // ========================================================================
         log("\n=== Single Example Prediction ===");
         float X_example[] = {4.5f, 3.0f, 1.5f, 0.25f};
         DMatrixHandle h_example;
@@ -344,8 +447,12 @@ int main() {
 
         bst_ulong example_len;
         const float* example_result;
+        // Same XGBoosterPredict() function! Works for single or multiple samples
         safe_xgboost(XGBoosterPredict(booster, h_example, 0, 0, 0, &example_len, &example_result));
+        // example_len = 3 (1 sample × 3 classes)
+        // example_result = [prob_class_0, prob_class_1, prob_class_2]
 
+        // Convert to class label (argmax of probabilities)
         int example_class = 0;
         float example_max_prob = example_result[0];
         for (int j = 1; j < IRIS_CLASSES; j++) {
