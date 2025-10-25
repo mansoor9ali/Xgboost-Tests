@@ -38,13 +38,7 @@ void logf(const char* format, ...) {
     }
 }
 
- // static inline void safe_xgboost(int ret) {
- //        if (ret != 0) {
- //            const char* err = XGBGetLastError();
- //            logf("XGBoost API error: %s", err ? err : "unknown");
- //            std::exit(EXIT_FAILURE);
- //        }
- //    }
+
 #define safe_xgboost(call) {  \
 int err = (call); \
 if (err != 0) { \
