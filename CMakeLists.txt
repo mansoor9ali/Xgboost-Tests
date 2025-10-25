@@ -12,7 +12,7 @@ set(DISABLE_PYTHON ON CACHE BOOL "Disable Python support in XGBoost")
 
 add_subdirectory(xgboost)
 
-add_executable(Xgboost_Tests regression1.cpp)
+add_executable(Xgboost_Tests classification1.cpp)
 target_link_libraries(Xgboost_Tests PRIVATE xgboost)
 
 # Copy DLL to output directory (Windows only)
