@@ -5,28 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <xgboost/c_api.h>
+#include "utility.h"
 
-#define safe_xgboost(call) {                                            \
-int err = (call);                                                       \
-if (err != 0) {                                                         \
-    fprintf(stderr, "%s:%d: error in %s: %s\n", __FILE__, __LINE__, #call, XGBGetLastError()); \
-    exit(1);                                                              \
-}                                                                       \
-}
-/* Make Json encoded array interface. */
-static void MakeArrayInterface(size_t data, size_t n, char const* typestr, size_t length,
-                               char* out) {
-    static char const kTemplate[] =
-        "{\"data\": [%lu, true], \"shape\": [%lu, %lu], \"typestr\": \"%s\", \"version\": 3}";
-    memset(out, '\0', length);
-    sprintf(out, kTemplate, data, n, 1ul, typestr);
-}
-/* Make Json encoded DMatrix configuration. */
-static void MakeConfig(int n_threads, size_t length, char* out) {
-    static char const kTemplate[] = "{\"missing\": NaN, \"nthread\": %d}";
-    memset(out, '\0', length);
-    sprintf(out, kTemplate, n_threads);
-}
+// Use the utility namespace for convenience
+using namespace xgb_utils;
+
 int main() {
   int silent = 0;
   int use_gpu = 1;  // set to 1 to use the GPU for training
@@ -132,15 +115,15 @@ int main() {
 
     DMatrixHandle dmat;
     char j_indptr[128];
-    MakeArrayInterface((size_t)indptr, 2ul, "<u8", sizeof(j_indptr), j_indptr);
+    makeArrayInterface((size_t)indptr, 2ul, "<u8", sizeof(j_indptr), j_indptr);
     char j_indices[128];
-    MakeArrayInterface((size_t)indices, sizeof(indices) / sizeof(uint32_t), "<u4",
+    makeArrayInterface((size_t)indices, sizeof(indices) / sizeof(uint32_t), "<u4",
                        sizeof(j_indices), j_indices);
     char j_data[128];
-    MakeArrayInterface((size_t)data, sizeof(data) / sizeof(float), "<f4", sizeof(j_data), j_data);
+    makeArrayInterface((size_t)data, sizeof(data) / sizeof(float), "<f4", sizeof(j_data), j_data);
 
     char j_config[64];
-    MakeConfig(0, sizeof(j_config), j_config);
+    makeConfig(0, sizeof(j_config), j_config);
 
     safe_xgboost(XGDMatrixCreateFromCSR(j_indptr, j_indices, j_data, 127, j_config, &dmat));
 
@@ -172,15 +155,15 @@ int main() {
                           1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 
     char j_indptr[128];
-    MakeArrayInterface((size_t)indptr, 128ul, "<u8", sizeof(j_indptr), j_indptr);
+    makeArrayInterface((size_t)indptr, 128ul, "<u8", sizeof(j_indptr), j_indptr);
     char j_indices[128];
-    MakeArrayInterface((size_t)indices, sizeof(indices) / sizeof(unsigned), "<u4",
+    makeArrayInterface((size_t)indices, sizeof(indices) / sizeof(unsigned), "<u4",
                        sizeof(j_indices), j_indices);
     char j_data[128];
-    MakeArrayInterface((size_t)data, sizeof(data) / sizeof(float), "<f4", sizeof(j_data), j_data);
+    makeArrayInterface((size_t)data, sizeof(data) / sizeof(float), "<f4", sizeof(j_data), j_data);
 
     char j_config[64];
-    MakeConfig(0, sizeof(j_config), j_config);
+    makeConfig(0, sizeof(j_config), j_config);
 
     DMatrixHandle dmat;
     safe_xgboost(XGDMatrixCreateFromCSC(j_indptr, j_indices, j_data, 1, j_config, &dmat));

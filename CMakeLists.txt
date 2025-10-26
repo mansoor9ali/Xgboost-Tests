@@ -12,8 +12,22 @@ set(DISABLE_PYTHON ON CACHE BOOL "Disable Python support in XGBoost")
 
 add_subdirectory(xgboost)
 
+# Utility library with common functions
+add_library(xgb_utility STATIC utility.cpp utility.h)
+target_link_libraries(xgb_utility PUBLIC xgboost)
+
+# Build all executables
 add_executable(Xgboost_Tests logistic_regression1.cpp)
-target_link_libraries(Xgboost_Tests PRIVATE xgboost)
+target_link_libraries(Xgboost_Tests PRIVATE xgb_utility)
+#
+#add_executable(classification1 classification1.cpp)
+#target_link_libraries(classification1 PRIVATE xgb_utility)
+#
+#add_executable(regression1 regression1.cpp)
+#target_link_libraries(regression1 PRIVATE xgb_utility)
+#
+#add_executable(main_tutorial main.cpp)
+#target_link_libraries(main_tutorial PRIVATE xgb_utility)
 
 # Copy DLL to output directory (Windows only)
 if(WIN32)

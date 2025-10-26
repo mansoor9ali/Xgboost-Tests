@@ -6,12 +6,13 @@
 #include <string>
 #include <filesystem>
 #include <xgboost/c_api.h>
+#include "utility.h"
+
+// Use the utility namespace for convenience
+using namespace xgb_utils;
 
 // This is a tutorial for using the XGBoost C API.
 // The code demonstrates how to create a simple XGBoost model, train it, and make predictions.
-
-// Wrapper to check XGBoost C API return codes
-// Global log file stream
 
 /*
 *This program demonstrates how to use the XGBoost library's C API to train a simple gradient boosting model and make predictions.
@@ -39,44 +40,10 @@ The program is essentially a tutorial/example demonstrating the basic workflow o
  *
  *
  */
-std::ofstream logFile;
-
-// Custom logging functions
-void log(const std::string& message) {
-    std::cout << message << std::endl;
-    if (logFile.is_open()) {
-        logFile << message << std::endl;
-        logFile.flush();
-    }
-}
-
-void logf(const char* format, ...) {
-    char buffer[1024];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-
-    std::cout << buffer << std::endl;
-    if (logFile.is_open()) {
-        logFile << buffer << std::endl;
-        logFile.flush();
-    }
-}
-
- 
-#define safe_xgboost(call) {  \
-int err = (call); \
-if (err != 0) { \
-throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + \
-": error in " + #call + ":" + XGBGetLastError());  \
-} \
-}
-
 
 int main() {
-    // Open a log file to write the output.
-    logFile.open("xgboost_log.txt");
+    // Initialize logging
+    initLogging("xgboost_log.txt");
 
     // create the train data
     const int cols = 3, rows = 5;
@@ -148,7 +115,6 @@ int main() {
     XGDMatrixFree(h_test);
     XGBoosterFree(h_booster);
 
-
-    logFile.close();
+    closeLogging();
     return 0;
 }

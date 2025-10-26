@@ -6,7 +6,13 @@
 #include <string>
 #include <random>
 #include <algorithm>
+#include <map>
+#include <iomanip>
 #include <xgboost/c_api.h>
+#include "utility.h"
+
+// Use the utility namespace for convenience
+using namespace xgb_utils;
 
 /*
  * This program demonstrates XGBoost multi-class classification using the Iris dataset.
@@ -90,39 +96,6 @@
  * ============================================================================
  */
 
-// Global log file stream
-std::ofstream logFile;
-
-// Custom logging functions
-void log(const std::string& message) {
-    std::cout << message << std::endl;
-    if (logFile.is_open()) {
-        logFile << message << std::endl;
-        logFile.flush();
-    }
-}
-
-void logf(const char* format, ...) {
-    char buffer[1024];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-
-    std::cout << buffer << std::endl;
-    if (logFile.is_open()) {
-        logFile << buffer << std::endl;
-        logFile.flush();
-    }
-}
-
-#define safe_xgboost(call) {  \
-int err = (call); \
-if (err != 0) { \
-throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + \
-": error in " + #call + ":" + XGBGetLastError());  \
-} \
-}
 
 // Iris dataset (150 samples, 4 features, 3 classes)
 // Features: sepal length, sepal width, petal length, petal width
@@ -275,8 +248,8 @@ void calculate_metrics(const std::vector<int>& y_true, const std::vector<int>& y
 
 int main() {
     try {
-        // Open a log file to write the output
-        logFile.open("xgboost_log.txt");
+        // Initialize logging
+        initLogging("xgboost_log.txt");
 
         log("=== XGBoost Iris Classification (C++) ===\n");
 
@@ -482,16 +455,14 @@ int main() {
         XGBoosterFree(booster);
 
         log("\nAll XGBoost resources freed successfully.");
-        logFile.close();
+        closeLogging();
 
         return 0;
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
-        if (logFile.is_open()) {
-            logFile << "Error: " << e.what() << std::endl;
-            logFile.close();
-        }
+        log(std::string("Error: ") + e.what());
+        closeLogging();
         return 1;
     }
 }
