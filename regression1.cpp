@@ -118,6 +118,8 @@ int main() {
     XGBoosterSetParam(h_booster, "subsample", "0.5");
     XGBoosterSetParam(h_booster, "colsample_bytree", "1");
     XGBoosterSetParam(h_booster, "num_parallel_tree", "1");
+    //param['updater'] = 'grow_gpu'
+    safe_xgboost(XGBoosterSetParam(h_booster, "device", "cuda")); // Use GPU for training if available
 
     // perform 200 learning iterations
     for (int iter=0; iter<200; iter++)
